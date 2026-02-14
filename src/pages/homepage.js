@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import BookCardHorizontal from '../components/book/BookCardHorizontal';
 import BookDetailModal from '../components/book/bookDetails';
 import { getBooksBySubject, getTrendingBooks, getBookWorkDetails } from '../services/openLibrary';
+import { reservationsAPI } from '../services/api';
 
 const { Content } = Layout;
 const { Title } = Typography;
@@ -128,12 +129,40 @@ const HomePage = () => {
     }
   };
 
-  const handleBorrow = (book) => {
-    console.log('Borrow book:', book.id);
-    // TODO: API call to YOUR backend: borrowBook(book.id)
-    message.success(`"${book.title}" borrowed successfully!`);
+const handleBorrow = async (book) => {
+  try {
+    // Check if user is logged in
+    const user = localStorage.getItem('user');
+    if (!user) {
+      message.warning('Please login to reserve books');
+      navigate('/Auth');
+      return;
+    }
+
+    // Create reservation
+    const reservationData = {
+      isbn: book.isbn,
+      title: book.title,
+      author: book.author,
+      coverImage: book.coverImage,
+    };
+    
+    await reservationsAPI.create(reservationData);
+    
+    message.success(`"${book.title}" reserved successfully! Pick it up at the library.`);
     setIsModalVisible(false);
-  };
+  } catch (error) {
+    console.error('Error reserving book:', error);
+    
+    if (error.response?.status === 400) {
+      message.error(error.response.data.message || 'You already have a reservation for this book.');
+    } else if (error.response?.status === 403) {
+      message.error('You have reached the maximum number of reservations.');
+    } else {
+      message.error('Failed to reserve book. Please try again.');
+    }
+  }
+};
 
   const handleViewAll = (categoryTitle) => {
     // TODO: Navigate to catalog filtered by category

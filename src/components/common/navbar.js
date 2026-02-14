@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu } from 'antd';
+import { Menu, message } from 'antd';
 import {
   HomeOutlined,
   BookOutlined,
@@ -36,13 +36,27 @@ const Navbar = () => {
     else if (path === '/adminDashboard') setCurrent('admin');
   }, [location]);
 
-  const handleLogout = () => {
+const handleLogout = async () => {
+  try {
+    // Optional: Call backend logout endpoint
+    // await authAPI.logout();
+    
     // Clear user data
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     setUser(null);
+    
+    message.success('Logged out successfully');
     navigate('/');
-  };
+  } catch (error) {
+    console.error('Logout error:', error);
+    // Still clear local data even if backend call fails
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    setUser(null);
+    navigate('/');
+  }
+};
 
   // Menu items for guests (not logged in)
   const guestItems = [

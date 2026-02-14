@@ -2,41 +2,39 @@ import React, { useState } from 'react';
 import { Form, Input, Button, message } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined, PhoneOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { authAPI } from '../../services/api';
 
 const RegisterForm = ({ onSwitchToLogin }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleRegister = async (values) => {
-    setLoading(true);
-    try {
-      // TODO: Replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+const handleRegister = async (values) => {
+  setLoading(true);
+  try {
+    // Call backend register API
+    const response = await authAPI.register({
+      name: values.name,
+      email: values.email,
+      phone: values.phone,
+      password: values.password,
+    });
 
-      const newUser = {
-        id: Date.now(),
-        name: values.name,
-        email: values.email,
-        phone: values.phone,
-        role: 'USER',
-      };
-      const mockToken = 'mock-jwt-token-' + Date.now();
+    const { token, user } = response.data;
 
-      localStorage.setItem('user', JSON.stringify(newUser));
-      localStorage.setItem('token', mockToken);
+    localStorage.setItem('user', JSON.stringify(user));
+    localStorage.setItem('token', token);
 
-      message.success('Registration successful!');
-      form.resetFields();
-      navigate('/userDashboard');
-      window.location.reload();
-    } catch (error) {
-      message.error('Registration failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+    message.success('Registration successful!');
+    form.resetFields();
+    navigate('/userDashboard');
+    window.location.reload();
+  } catch (error) {
+    message.error(error.response?.data?.message || 'Registration failed. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
   return (
     <div>
       <h2>Register</h2>

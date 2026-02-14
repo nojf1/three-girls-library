@@ -12,12 +12,14 @@ import {
   Flex,
   Spin,
   Empty,
-  message
+  message,
+  Tag,
 } from 'antd';
 import { SearchOutlined, ReloadOutlined } from '@ant-design/icons';
 import BookCard from '../components/book/bookcard';
 import BookDetailModal from '../components/book/bookDetails';
 import { searchBooks, getBooksBySubject, getTrendingBooks, getBookWorkDetails } from '../services/openLibrary';
+import { reservationsAPI } from '../services/api';
 
 const { Content } = Layout;
 const { Title, Text } = Typography;
@@ -26,7 +28,9 @@ const { Search } = Input;
 const Catalog = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+    const [searchInput, setSearchInput] = useState(''); 
   const [selectedGenre, setSelectedGenre] = useState('all');
+    const [sortBy, setSortBy] = useState('relevance'); 
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -70,24 +74,41 @@ const Catalog = () => {
     }
   };
 
-  // Search with Open Library API
+
+// Search with Open Library API 
   const handleSearch = async (value) => {
-    if (!value.trim()) {
-      loadBooks();
+    const trimmedValue = value?.trim() || searchInput.trim();
+    
+    if (!trimmedValue) {
+      message.warning('Please enter a search term');
       return;
     }
 
     setLoading(true);
-    setSearchTerm(value);
+    setSearchTerm(trimmedValue);
     setCurrentPage(1);
 
     try {
-      const result = await searchBooks(value, 50);
+      let result;
+      
+      // Check if it's an ISBN search (numbers only, 10 or 13 digits)
+      const isISBN = /^\d{10}(\d{3})?$/.test(trimmedValue.replace(/-/g, ''));
+      
+      if (isISBN) {
+        message.info('Searching by ISBN...');
+        result = await searchBooks(`isbn:${trimmedValue}`, 20);
+      } else {
+        // Normal search
+        result = await searchBooks(trimmedValue, 50);
+      }
+      
       setBooks(result);
       setTotalBooks(result.length);
       
       if (result.length === 0) {
         message.info('No books found. Try a different search term.');
+      } else {
+        message.success(`Found ${result.length} books!`);
       }
     } catch (error) {
       console.error('Error searching books:', error);
@@ -97,6 +118,22 @@ const Catalog = () => {
     }
   };
 
+  // NEW: Quick search suggestions
+  const getSearchSuggestion = () => {
+    const suggestions = [
+      'harry potter',
+      'lord of the rings',
+      'gatsby',
+      'pride and prejudice',
+      '1984',
+      'to kill a mockingbird',
+      'the hobbit',
+      'dune',
+      'neuromancer',
+      'foundation'
+    ];
+    return suggestions[Math.floor(Math.random() * suggestions.length)];
+  };
   // Filter by genre with Open Library API
   const handleGenreChange = async (value) => {
     setSelectedGenre(value);
@@ -118,6 +155,17 @@ const Catalog = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // NEW: Clear search and filters
+  const handleClearSearch = () => {
+    setSearchInput('');
+    setSearchTerm('');
+    setSelectedGenre('all');
+    setSortBy('relevance');
+    setCurrentPage(1);
+    loadBooks();
+    message.info('Search cleared');
   };
 
   // Refresh - reload trending books
@@ -164,13 +212,46 @@ const Catalog = () => {
     }
   };
 
-  // Borrow book
-  const handleBorrow = (book) => {
-    console.log('Borrow book:', book.id);
-    // TODO: API call to YOUR backend: borrowBook(book.id)
-    message.success(`"${book.title}" borrowed successfully!`);
+// Borrow/Reserve book
+const handleBorrow = async (book) => {
+  try {
+    // Check if user is logged in
+    const user = localStorage.getItem('user');
+    if (!user) {
+      message.warning('Please login to reserve books');
+      navigate('/Auth');
+      return;
+    }
+
+    setLoading(true);
+    
+    // Create reservation
+    const reservationData = {
+      isbn: book.isbn,
+      title: book.title,
+      author: book.author,
+      coverImage: book.coverImage,
+    };
+    
+    await reservationsAPI.create(reservationData);
+    
+    message.success(`"${book.title}" reserved successfully! Pick it up at the library.`);
     setIsModalVisible(false);
-  };
+  } catch (error) {
+    console.error('Error reserving book:', error);
+    
+    // Handle specific error messages
+    if (error.response?.status === 400) {
+      message.error(error.response.data.message || 'You already have a reservation for this book.');
+    } else if (error.response?.status === 403) {
+      message.error('You have reached the maximum number of reservations.');
+    } else {
+      message.error('Failed to reserve book. Please try again.');
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Pagination
   const handlePageChange = (page) => {
@@ -197,48 +278,102 @@ const Catalog = () => {
         </div>
 
         {/* Search and Filter Section */}
-        <Flex 
-          gap="middle" 
-          wrap="wrap" 
+       {/* Search and Filter Section - IMPROVED */}
+        <div
           style={{ 
             marginBottom: '24px',
-            padding: '20px',
+            padding: '24px',
             background: '#fff',
             borderRadius: '8px',
-            boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+            boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
           }}
         >
-          <Search
-            placeholder="Search by title, author, or ISBN..."
-            allowClear
-            enterButton={
-              <Button type="primary" icon={<SearchOutlined />}>
-                Search
+          {/* Main Search Row */}
+          <Flex gap="middle" wrap="wrap" style={{ marginBottom: '16px' }}>
+            <Search
+              placeholder={`Try searching "${getSearchSuggestion()}"...`}
+              allowClear
+              enterButton={
+                <Button type="primary" icon={<SearchOutlined />}>
+                  Search
+                </Button>
+              }
+              size="large"
+              onSearch={handleSearch}
+              onChange={(e) => setSearchInput(e.target.value)}
+              value={searchInput}
+              style={{ flex: 1, minWidth: '300px' }}
+            />
+
+            <Select
+              size="large"
+              value={selectedGenre}
+              onChange={handleGenreChange}
+              options={genres}
+              style={{ width: 200 }}
+              placeholder="Select Genre"
+            />
+
+            <Button 
+              size="large" 
+              icon={<ReloadOutlined />}
+              onClick={handleRefresh}
+            >
+              Reset
+            </Button>
+
+            {(searchTerm || selectedGenre !== 'all') && (
+              <Button 
+                size="large" 
+                danger
+                onClick={handleClearSearch}
+              >
+                Clear All
               </Button>
-            }
-            size="large"
-            onSearch={handleSearch}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            value={searchTerm}
-            style={{ flex: 1, minWidth: '300px' }}
-          />
+            )}
+          </Flex>
 
-          <Select
-            size="large"
-            value={selectedGenre}
-            onChange={handleGenreChange}
-            options={genres}
-            style={{ width: 200 }}
-          />
+          {/* Search Tips */}
+          <div style={{ fontSize: '12px', color: '#666' }}>
+            <Space split="|">
+              <span>💡 <strong>Tip:</strong> Try "author:tolkien" or "subject:fantasy"</span>
+              <span>Search by ISBN for exact matches</span>
+              <span>Use quotes for exact phrases: "lord of the rings"</span>
+            </Space>
+          </div>
 
-          <Button 
-            size="large" 
-            icon={<ReloadOutlined />}
-            onClick={handleRefresh}
-          >
-            Refresh
-          </Button>
-        </Flex>
+          {/* Active Filters Display */}
+          {(searchTerm || selectedGenre !== 'all') && (
+            <div style={{ marginTop: '12px' }}>
+              <Text type="secondary" style={{ marginRight: '8px' }}>Active filters:</Text>
+              {searchTerm && (
+                <Tag 
+                  closable 
+                  onClose={() => {
+                    setSearchTerm('');
+                    setSearchInput('');
+                    loadBooks();
+                  }}
+                  color="blue"
+                >
+                  Search: "{searchTerm}"
+                </Tag>
+              )}
+              {selectedGenre !== 'all' && (
+                <Tag 
+                  closable 
+                  onClose={() => {
+                    setSelectedGenre('all');
+                    loadBooks();
+                  }}
+                  color="green"
+                >
+                  Genre: {selectedGenre}
+                </Tag>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Loading State */}
         {loading && (
@@ -255,14 +390,17 @@ const Catalog = () => {
           />
         )}
 
-        {/* Results Count */}
+   {/* Results Count */}
         {!loading && currentBooks.length > 0 && (
           <Flex justify="space-between" align="center" style={{ marginBottom: '16px' }}>
-            <Text type="secondary">
-              Showing <strong>{startIndex + 1}-{Math.min(endIndex, totalBooks)}</strong> of{' '}
-              <strong>{totalBooks}</strong> books
-              {selectedGenre !== 'all' && <> in <strong>{selectedGenre}</strong></>}
-            </Text>
+            <Space>
+              <Text type="secondary">
+                Showing <strong>{startIndex + 1}-{Math.min(endIndex, totalBooks)}</strong> of{' '}
+                <strong>{totalBooks}</strong> books
+                {searchTerm && <> for "<strong>{searchTerm}</strong>"</>}
+                {selectedGenre !== 'all' && <> in <strong>{selectedGenre}</strong></>}
+              </Text>
+            </Space>
             <Text type="secondary">
               Page {currentPage} of {Math.ceil(totalBooks / pageSize)}
             </Text>

@@ -2,45 +2,43 @@ import React, { useState } from 'react';
 import { Form, Input, Button, message } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { authAPI } from '../../services/api';
 
 const LoginForm = ({ onSwitchToRegister }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = async (values) => {
-    setLoading(true);
-    try {
-      // TODO: Replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const mockUser = {
-        id: 1,
-        name: 'User',
-        email: values.email,
-        role: 'USER',
-      };
-      const mockToken = 'mock-jwt-token-' + Date.now();
+const handleLogin = async (values) => {
+  setLoading(true);
+  try {
+    // Call backend login API
+    const response = await authAPI.login({
+      email: values.email,
+      password: values.password,
+    });
+    
+    const { token, user } = response.data;
 
-      localStorage.setItem('user', JSON.stringify(mockUser));
-      localStorage.setItem('token', mockToken);
+    localStorage.setItem('user', JSON.stringify(user));
+    localStorage.setItem('token', token);
 
-      message.success('Login successful!');
-      form.resetFields();
-      
-      if (mockUser.role === 'ADMIN') {
-        navigate('/adminDashboard');
-      } else {
-        navigate('/userDashboard');
-      }
-      
-      window.location.reload();
-    } catch (error) {
-      message.error('Login failed');
-    } finally {
-      setLoading(false);
+    message.success('Login successful!');
+    form.resetFields();
+    
+    if (user.role === 'ADMIN') {
+      navigate('/adminDashboard');
+    } else {
+      navigate('/userDashboard');
     }
-  };
+    
+    window.location.reload();
+  } catch (error) {
+    message.error(error.response?.data?.message || 'Login failed. Please check your credentials.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div>

@@ -8,7 +8,10 @@ import {
   Row, 
   Col,
   Statistic,
-  Space
+  Space,
+  message,
+  Empty,
+  Spin
 } from 'antd';
 import { 
   BookOutlined, 
@@ -17,13 +20,15 @@ import {
   CheckCircleOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { dashboardAPI, reservationsAPI } from '../services/api';
 
 const { Content } = Layout;
 
 const UserDashboard = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
   const [borrowHistory, setBorrowHistory] = useState([]);
-  const [topPicks, setTopPicks] = useState([]);
+  const [reservations, setReservations] = useState([]);
   const [stats, setStats] = useState({
     booksBorrowed: 0,
     booksReturned: 0,
@@ -39,95 +44,67 @@ const UserDashboard = () => {
       return;
     }
 
-    // Load mock data
-    loadMockData();
+    // Load dashboard data
+    loadDashboardData();
   }, [navigate]);
 
-  const loadMockData = () => {
-    // TODO: Replace with actual API calls
+  const loadDashboardData = async () => {
+    setLoading(true);
+    try {
+      // Fetch dashboard data from backend
+      const response = await dashboardAPI.getMy();
+      const data = response.data;
+      
+      console.log('Dashboard data:', data); // DEBUG
+      
+      // Set statistics
+      setStats({
+        booksBorrowed: data.summary?.activeLoanCount || 0,
+        booksReturned: data.summary?.totalReturned || 0,
+        penalty: data.summary?.totalPenalties || 0,
+        totalBorrows: data.summary?.totalLoans || 0,
+      });
 
-    // Mock statistics
-    setStats({
-      booksBorrowed: 2,
-      booksReturned: 3,
-      penalty: 1.50,
-      totalBorrows: 5,
-    });
+      // Format active loans
+      const formattedLoans = (data.activeLoans || []).map(loan => ({
+        key: loan.id,
+        id: loan.id,
+        bookTitle: loan.bookTitle || loan.title,
+        author: loan.author,
+        borrowingDate: loan.loanDate,
+        dueDate: loan.dueDate,
+        returnDate: loan.returnDate,
+        status: loan.returnDate ? 'returned' : 'active',
+        penalty: loan.penalty || 0,
+      }));
+      
+      setBorrowHistory(formattedLoans);
 
-    // Mock borrowing history
-    const mockHistory = [
-      {
-        key: 1,
-        id: 1,
-        bookTitle: 'The Great Gatsby',
-        author: 'F. Scott Fitzgerald',
-        borrowingDate: '2026-01-15',
-        dueDate: '2026-02-15',
-        returnDate: null,
-        status: 'active',
-        penalty: 0,
-      },
-      {
-        key: 2,
-        id: 2,
-        bookTitle: '1984',
-        author: 'George Orwell',
-        borrowingDate: '2026-01-20',
-        dueDate: '2026-02-20',
-        returnDate: null,
-        status: 'active',
-        penalty: 0,
-      },
-      {
-        key: 3,
-        id: 3,
-        bookTitle: 'To Kill a Mockingbird',
-        author: 'Harper Lee',
-        borrowingDate: '2025-12-01',
-        dueDate: '2025-12-31',
-        returnDate: '2025-12-28',
-        status: 'returned',
-        penalty: 0,
-      },
-      {
-        key: 4,
-        id: 4,
-        bookTitle: 'Pride and Prejudice',
-        author: 'Jane Austen',
-        borrowingDate: '2025-11-15',
-        dueDate: '2025-12-15',
-        returnDate: '2025-12-18',
-        status: 'returned',
-        penalty: 1.50,
-      },
-      {
-        key: 5,
-        id: 5,
-        bookTitle: 'The Hobbit',
-        author: 'J.R.R. Tolkien',
-        borrowingDate: '2025-10-20',
-        dueDate: '2025-11-20',
-        returnDate: '2025-11-18',
-        status: 'returned',
-        penalty: 0,
-      },
-    ];
-
-    setBorrowHistory(mockHistory);
-
-    // Mock top picks
-    const mockTopPicks = [
-      { id: 1, title: 'Dune', coverImage: null },
-      { id: 2, title: 'Foundation', coverImage: null },
-      { id: 3, title: 'Neuromancer', coverImage: null },
-      { id: 4, title: 'Snow Crash', coverImage: null },
-    ];
-
-    setTopPicks(mockTopPicks);
+      // Set reservations
+      setReservations(data.activeReservations || []);
+      
+    } catch (error) {
+      console.error('Error loading dashboard:', error);
+      message.error(error.response?.data?.message || 'Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Table columns
-  const columns = [
+  // Cancel reservation
+  const handleCancelReservation = async (id) => {
+    try {
+      await reservationsAPI.cancel(id);
+      message.success('Reservation cancelled successfully');
+      loadDashboardData(); // Reload data
+    } catch (error) {
+      console.error('Error cancelling reservation:', error);
+      message.error(error.response?.data?.message || 'Failed to cancel reservation');
+    }
+  };
+
+  // Table columns for loans
+  const loanColumns = [
     {
       title: 'Books',
       dataIndex: 'bookTitle',
@@ -143,15 +120,26 @@ const UserDashboard = () => {
       title: 'Borrowing date',
       dataIndex: 'borrowingDate',
       key: 'borrowingDate',
-      render: (date) => new Date(date).toLocaleDateString(),
+      render: (date) => date ? new Date(date).toLocaleDateString() : '-',
     },
     {
       title: 'Due date',
       dataIndex: 'dueDate',
       key: 'dueDate',
-      render: (date, record) => (
-        record.status === 'active' ? new Date(date).toLocaleDateString() : '-'
-      ),
+      render: (date, record) => {
+        if (!date || record.status === 'returned') return '-';
+        
+        const dueDate = new Date(date);
+        const today = new Date();
+        const isOverdue = dueDate < today;
+        
+        return (
+          <span style={{ color: isOverdue ? '#ff4d4f' : 'inherit' }}>
+            {dueDate.toLocaleDateString()}
+            {isOverdue && <Tag color="red" style={{ marginLeft: 8 }}>OVERDUE</Tag>}
+          </span>
+        );
+      },
     },
     {
       title: 'Return date',
@@ -165,16 +153,7 @@ const UserDashboard = () => {
       render: (_, record) => (
         <Space direction="vertical" size="small">
           {record.status === 'active' ? (
-            <>
-              <Tag color="green">Ready to receive</Tag>
-              <Button 
-                size="small" 
-                type="primary"
-                onClick={() => handleReturn(record.id)}
-              >
-                Return
-              </Button>
-            </>
+            <Tag color="green">Active</Tag>
           ) : (
             <Tag color="default">Returned</Tag>
           )}
@@ -187,23 +166,73 @@ const UserDashboard = () => {
       key: 'penalty',
       render: (penalty) => (
         <span style={{ color: penalty > 0 ? '#ff4d4f' : '#52c41a' }}>
-          RM {penalty.toFixed(2)}
+          RM {(penalty || 0).toFixed(2)}
         </span>
       ),
     },
   ];
 
-  const handleReturn = (bookId) => {
-    // TODO: Implement return book functionality
-    console.log('Return book:', bookId);
-    // API call: returnBook(bookId)
-  };
+  // Table columns for reservations
+  const reservationColumns = [
+    {
+      title: 'Book Title',
+      dataIndex: 'title',
+      key: 'title',
+      render: (text, record) => (
+        <div>
+          <div style={{ fontWeight: 'bold' }}>{text}</div>
+          <div style={{ color: '#666', fontSize: '12px' }}>{record.author}</div>
+        </div>
+      ),
+    },
+    {
+      title: 'Reserved On',
+      dataIndex: 'reservedAt',
+      key: 'reservedAt',
+      render: (date) => new Date(date).toLocaleDateString(),
+    },
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status) => {
+        const colors = {
+          PENDING: 'orange',
+          READY: 'green',
+          EXPIRED: 'red',
+        };
+        return <Tag color={colors[status] || 'default'}>{status}</Tag>;
+      },
+    },
+    {
+      title: 'Action',
+      key: 'action',
+      render: (_, record) => (
+        <Button 
+          size="small" 
+          danger
+          onClick={() => handleCancelReservation(record.id)}
+        >
+          Cancel
+        </Button>
+      ),
+    },
+  ];
 
-  const handleViewBook = (bookId) => {
-    // TODO: Navigate to book details or catalog
-    console.log('View book:', bookId);
-    // navigate to /catalog or book details
-  };
+  if (loading) {
+    return (
+      <Layout style={{ minHeight: '100vh', background: '#f0f2f5' }}>
+        <Content style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          minHeight: '100vh'
+        }}>
+          <Spin size="large" tip="Loading your dashboard..." />
+        </Content>
+      </Layout>
+    );
+  }
 
   return (
     <Layout style={{ minHeight: '100vh', background: '#f0f2f5' }}>
@@ -258,63 +287,50 @@ const UserDashboard = () => {
           </Col>
         </Row>
 
+        {/* Active Reservations */}
+        {reservations.length > 0 && (
+          <Card 
+            title="Active Reservations"
+            style={{ marginBottom: '24px' }}
+          >
+            <Table
+              columns={reservationColumns}
+              dataSource={reservations}
+              pagination={false}
+              rowKey="id"
+            />
+          </Card>
+        )}
+
         {/* Borrowing History Table */}
         <Card 
           title="Borrowing History"
           style={{ marginBottom: '24px' }}
         >
-          <Table
-            columns={columns}
-            dataSource={borrowHistory}
-            pagination={false}
-            scroll={{ x: 'max-content' }}
-          />
+          {borrowHistory.length > 0 ? (
+            <Table
+              columns={loanColumns}
+              dataSource={borrowHistory}
+              pagination={{ pageSize: 10 }}
+              scroll={{ x: 'max-content' }}
+              rowKey="id"
+            />
+          ) : (
+            <Empty description="No borrowing history yet. Start browsing books!" />
+          )}
         </Card>
 
-        {/* Today's Top Picks - Bottom Section */}
-        <Card title="Today's Top Picks for You">
-          <Row gutter={[16, 16]}>
-            {topPicks.map((book) => (
-              <Col key={book.id} xs={12} sm={8} md={6} lg={4}>
-                <Card
-                  hoverable
-                  cover={
-                    <div
-                      style={{
-                        height: '200px',
-                        background: book.coverImage || '#f0f0f0',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      {!book.coverImage && (
-                        <BookOutlined style={{ fontSize: '48px', color: '#d9d9d9' }} />
-                      )}
-                    </div>
-                  }
-                  onClick={() => handleViewBook(book.id)}
-                >
-                  <Card.Meta 
-                    title={book.title}
-                    style={{ textAlign: 'center' }}
-                  />
-                  <Button 
-                    type="primary" 
-                    block 
-                    style={{ marginTop: '12px' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleViewBook(book.id);
-                    }}
-                  >
-                    Read More
-                  </Button>
-                </Card>
-              </Col>
-            ))}
-          </Row>
-        </Card>
+        {/* Browse Books Button */}
+        <div style={{ textAlign: 'center', marginTop: '32px' }}>
+          <Button 
+            type="primary" 
+            size="large"
+            icon={<BookOutlined />}
+            onClick={() => navigate('/catalog')}
+          >
+            Browse Books
+          </Button>
+        </div>
       </Content>
     </Layout>
   );

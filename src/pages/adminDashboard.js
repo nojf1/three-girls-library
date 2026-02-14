@@ -30,6 +30,7 @@ import {
   CloseCircleOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { usersAPI, loansAPI, reservationsAPI } from '../services/api';
 
 const { Content } = Layout;
 const { TabPane } = Tabs;
@@ -38,6 +39,7 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
   const [searchText, setSearchText] = useState('');
+  const [loading, setLoading] = useState(false); 
   
   // Book Management State
   const [books, setBooks] = useState([]);
@@ -49,52 +51,70 @@ const AdminDashboard = () => {
   const [users, setUsers] = useState([]);
 
   // Check if user is admin
-  useEffect(() => {
-    const user = localStorage.getItem('user');
-    if (!user) {
-      navigate('/Auth');
-      return;
-    }
-    const userData = JSON.parse(user);
-    if (userData.role !== 'ADMIN') {
-      message.error('Access denied. Admin only.');
-      navigate('/');
-      return;
-    }
-    
-    // Load mock data
-    loadMockData();
-  }, [navigate]);
+useEffect(() => {
+  const user = localStorage.getItem('user');
+  if (!user) {
+    navigate('/Auth');
+    return;
+  }
+  const userData = JSON.parse(user);
+  if (userData.role !== 'ADMIN') {
+    message.error('Access denied. Admin only.');
+    navigate('/');
+    return;
+  }
+  
+  // Load admin data
+  loadAdminData();
+}, [navigate]);
+const loadAdminData = async () => {
+  setLoading(true);
+  try {
+    // Fetch all data in parallel
+    const [usersResponse, loansResponse, reservationsResponse] = await Promise.all([
+      usersAPI.getAll(),
+      loansAPI.getAll(),
+      reservationsAPI.getAll(),
+    ]);
 
-  const loadMockData = () => {
-    // TODO: Replace with actual API calls
-    const mockBooks = Array.from({ length: 20 }, (_, i) => ({
-      key: i + 1,
-      id: i + 1,
-      title: `Book Title ${i + 1}`,
-      author: `Author ${i + 1}`,
-      genre: ['Fiction', 'Science', 'History', 'Fantasy'][i % 4],
-      isbn: `978-0-${i}-12345-${i}`,
-      totalCopies: Math.floor(Math.random() * 5) + 1,
-      availableCopies: Math.floor(Math.random() * 3),
-      status: Math.random() > 0.3 ? 'available' : 'unavailable',
+    // Process users
+    const usersData = usersResponse.data.map(user => ({
+      key: user.id,
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      status: user.status || 'ACTIVE',
+      booksCount: user.activeLoanCount || 0,
+      lateFees: user.totalPenalties || 0,
+      joinDate: user.createdAt,
     }));
+    setUsers(usersData);
 
-    const mockUsers = Array.from({ length: 15 }, (_, i) => ({
-      key: i + 1,
-      id: i + 1,
-      name: `User ${i + 1}`,
-      email: `user${i + 1}@example.com`,
-      role: i === 0 ? 'ADMIN' : 'USER',
-      status: Math.random() > 0.2 ? 'ACTIVE' : 'SUSPENDED',
-      booksCount: Math.floor(Math.random() * 5),
-      lateFees: Math.random() * 10,
-      joinDate: `2025-${String(Math.floor(Math.random() * 12) + 1).padStart(2, '0')}-15`,
+    // Process loans (as books in admin view)
+    const loansData = loansResponse.data.map(loan => ({
+      key: loan.id,
+      id: loan.id,
+      title: loan.bookTitle,
+      author: loan.author,
+      genre: loan.genre || 'General',
+      isbn: loan.isbn,
+      totalCopies: 1, // You might track this differently
+      availableCopies: loan.returnDate ? 1 : 0,
+      status: loan.returnDate ? 'available' : 'borrowed',
+      borrowedBy: loan.userName,
+      dueDate: loan.dueDate,
     }));
+    setBooks(loansData);
 
-    setBooks(mockBooks);
-    setUsers(mockUsers);
-  };
+    message.success('Admin data loaded successfully');
+  } catch (error) {
+    console.error('Error loading admin data:', error);
+    message.error(error.response?.data?.message || 'Failed to load admin data');
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Statistics data
   const stats = {
@@ -103,10 +123,6 @@ const AdminDashboard = () => {
     totalUsers: 234,
     revenue: 145.50,
   };
-
-  // ===================
-  // BOOK MANAGEMENT
-  // ===================
 
   const bookColumns = [
     {
@@ -200,24 +216,21 @@ const AdminDashboard = () => {
     setBooks(books.filter(b => b.id !== bookId));
   };
 
-  const handleBookFormSubmit = async (values) => {
-    try {
-      if (editingBook) {
-        // TODO: API call to update book
-        message.success('Book updated successfully');
-        setBooks(books.map(b => b.id === editingBook.id ? { ...b, ...values } : b));
-      } else {
-        // TODO: API call to add book
-        message.success('Book added successfully');
-        const newBook = { ...values, id: books.length + 1, key: books.length + 1 };
-        setBooks([...books, newBook]);
-      }
-      setIsBookModalVisible(false);
-      bookForm.resetFields();
-    } catch (error) {
-      message.error('Operation failed');
+const handleBookFormSubmit = async (values) => {
+  try {
+    if (editingBook) {
+      // For now, books are managed through loans
+      // You might want to add a separate books management endpoint
+      message.info('Book editing is managed through loan system');
+    } else {
+      message.info('Books are added when users make reservations');
     }
-  };
+    setIsBookModalVisible(false);
+    bookForm.resetFields();
+  } catch (error) {
+    message.error('Operation failed');
+  }
+};
 
   // ===================
   // USER MANAGEMENT
@@ -301,20 +314,29 @@ const AdminDashboard = () => {
     },
   ];
 
-  const handleToggleUserStatus = (user) => {
-    const newStatus = user.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
-    // TODO: API call to update user status
+ const handleToggleUserStatus = async (user) => {
+  const newStatus = user.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
+  
+  try {
+    await usersAPI.update(user.id, { status: newStatus });
     message.success(`User ${newStatus === 'ACTIVE' ? 'activated' : 'suspended'}`);
-    setUsers(users.map(u => 
-      u.id === user.id ? { ...u, status: newStatus } : u
-    ));
-  };
+    loadAdminData(); // Reload data
+  } catch (error) {
+    console.error('Error updating user status:', error);
+    message.error(error.response?.data?.message || 'Failed to update user status');
+  }
+};
 
-  const handleDeleteUser = (userId) => {
-    // TODO: API call to delete user
+const handleDeleteUser = async (userId) => {
+  try {
+    await usersAPI.delete(userId);
     message.success('User deleted successfully');
-    setUsers(users.filter(u => u.id !== userId));
-  };
+    loadAdminData(); // Reload data
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    message.error(error.response?.data?.message || 'Failed to delete user');
+  }
+};
 
   return (
     <Layout style={{ minHeight: '100vh', background: '#f0f2f5' }}>
