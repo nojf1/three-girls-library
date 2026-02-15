@@ -76,7 +76,6 @@ export const profileAPI = {
   changePassword: (passwordData) => API.put('/users/me/password', passwordData),
 };
 
-
 export const usersAPI = {
   // Get all users
   getAll: () => API.get('/users'),

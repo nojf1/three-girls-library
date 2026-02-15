@@ -18,25 +18,26 @@ import {
 import { SearchOutlined, ReloadOutlined } from '@ant-design/icons';
 import BookCard from '../components/book/bookcard';
 import BookDetailModal from '../components/book/bookDetails';
+import { useNavigate } from 'react-router-dom';
 import { searchBooks, getBooksBySubject, getTrendingBooks, getBookWorkDetails } from '../services/openLibrary';
 import { reservationsAPI } from '../services/api';
+
 
 const { Content } = Layout;
 const { Title, Text } = Typography;
 const { Search } = Input;
 
 const Catalog = () => {
+   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
-    const [searchInput, setSearchInput] = useState(''); 
+  const [searchInput, setSearchInput] = useState(''); 
   const [selectedGenre, setSelectedGenre] = useState('all');
-    const [sortBy, setSortBy] = useState('relevance'); 
+  const [sortBy, setSortBy] = useState('relevance'); 
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [totalBooks, setTotalBooks] = useState(0);
-  
-  // ADD THESE MISSING STATE VARIABLES:
   const [selectedBook, setSelectedBook] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
