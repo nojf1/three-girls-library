@@ -1,13 +1,12 @@
 ﻿{
   "name": "three-girls-library",
   "version": "1.0.0",
-  "description": "Full-stack library management system",
+  "description": "Full-stack library management system - React + Spring Boot",
   "scripts": {
-    "install-all": "cd frontend && npm install && cd ../backend && npm install",
-    "start": "cd frontend && npm start",
-    "server": "cd backend && npm start",
-    "dev": "concurrently \"npm run start\" \"npm run server\"",
-    "build": "cd frontend && npm run build"
+    "frontend": "cd frontend && npm start",
+    "backend": "cd backend && gradlew.bat bootRun",
+    "start": "npm run frontend",
+    "help": "echo Run frontend: npm run frontend | Run backend: npm run backend"
   },
   "devDependencies": {
     "concurrently": "^8.2.0"
