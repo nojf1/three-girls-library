@@ -18,15 +18,16 @@ const handleLogin = async (values) => {
       password: values.password,
     });
     
-    const { token, user } = response.data;
+    const { token, userId, email, fullName, role } = response.data;
 
-    localStorage.setItem('user', JSON.stringify(user));
+    // Store user data and token
+    localStorage.setItem('user', JSON.stringify({ userId, email, fullName, role }));
     localStorage.setItem('token', token);
 
     message.success('Login successful!');
     form.resetFields();
     
-    if (user.role === 'ADMIN') {
+    if (role === 'ADMIN') {
       navigate('/adminDashboard');
     } else {
       navigate('/userDashboard');

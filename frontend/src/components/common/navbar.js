@@ -21,8 +21,16 @@ const Navbar = () => {
   useEffect(() => {
     // Check if user is logged in
     const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    if (storedUser && storedUser !== 'undefined') {
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch (error) {
+        console.error('Failed to parse stored user data:', error);
+        localStorage.removeItem('user');
+        setUser(null);
+      }
+    } else {
+      setUser(null);
     }
   }, [location]); // Re-check on location change
 

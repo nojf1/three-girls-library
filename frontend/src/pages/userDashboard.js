@@ -20,7 +20,7 @@ import {
   CheckCircleOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { dashboardAPI, reservationsAPI } from '../services/api';
+import { loansAPI, penaltiesAPI } from '../services/api';
 
 const { Content } = Layout;
 
@@ -51,55 +51,53 @@ const UserDashboard = () => {
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      // Fetch dashboard data from backend
-      const response = await dashboardAPI.getMy();
-      const data = response.data;
-      
-      console.log('Dashboard data:', data); // DEBUG
-      
-      // Set statistics
+      // Fetch data from individual endpoints
+      const [loansResponse, penaltiesResponse] = await Promise.all([
+        loansAPI.getMy(),
+        penaltiesAPI.getMy(),
+      ]);
+
+      const loans = loansResponse.data || [];
+      const penalties = penaltiesResponse.data || [];
+
+      console.log('Loans:', loans); // DEBUG
+      console.log('Penalties:', penalties); // DEBUG
+
+      // Calculate statistics
+      const activeLoanCount = loans.filter(loan => !loan.returnDate).length;
+      const returnedLoanCount = loans.filter(loan => loan.returnDate).length;
+      const totalPenalties = penalties.reduce((sum, penalty) => sum + penalty.amount, 0);
+
       setStats({
-        booksBorrowed: data.summary?.activeLoanCount || 0,
-        booksReturned: data.summary?.totalReturned || 0,
-        penalty: data.summary?.totalPenalties || 0,
-        totalBorrows: data.summary?.totalLoans || 0,
+        booksBorrowed: activeLoanCount,
+        booksReturned: returnedLoanCount,
+        penalty: totalPenalties,
+        totalBorrows: loans.length,
       });
 
-      // Format active loans
-      const formattedLoans = (data.activeLoans || []).map(loan => ({
+      // Format loans
+      const formattedLoans = loans.map(loan => ({
         key: loan.id,
         id: loan.id,
-        bookTitle: loan.bookTitle || loan.title,
-        author: loan.author,
+        bookTitle: loan.book?.title || loan.bookTitle || 'N/A',
+        author: loan.book?.author || loan.author || 'N/A',
         borrowingDate: loan.loanDate,
         dueDate: loan.dueDate,
         returnDate: loan.returnDate,
         status: loan.returnDate ? 'returned' : 'active',
         penalty: loan.penalty || 0,
       }));
-      
+
       setBorrowHistory(formattedLoans);
 
-      // Set reservations
-      setReservations(data.activeReservations || []);
-      
+      // Set reservations to empty (not yet implemented in backend)
+      setReservations([]);
+
     } catch (error) {
       console.error('Error loading dashboard:', error);
       message.error(error.response?.data?.message || 'Failed to load dashboard data');
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Cancel reservation
-  const handleCancelReservation = async (id) => {
-    try {
-      await reservationsAPI.cancel(id);
-      message.success('Reservation cancelled successfully');
-      loadDashboardData(); // Reload data
-    } catch (error) {
-      console.error('Error cancelling reservation:', error);
-      message.error(error.response?.data?.message || 'Failed to cancel reservation');
     }
   };
 
@@ -172,53 +170,6 @@ const UserDashboard = () => {
     },
   ];
 
-  // Table columns for reservations
-  const reservationColumns = [
-    {
-      title: 'Book Title',
-      dataIndex: 'title',
-      key: 'title',
-      render: (text, record) => (
-        <div>
-          <div style={{ fontWeight: 'bold' }}>{text}</div>
-          <div style={{ color: '#666', fontSize: '12px' }}>{record.author}</div>
-        </div>
-      ),
-    },
-    {
-      title: 'Reserved On',
-      dataIndex: 'reservedAt',
-      key: 'reservedAt',
-      render: (date) => new Date(date).toLocaleDateString(),
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status) => {
-        const colors = {
-          PENDING: 'orange',
-          READY: 'green',
-          EXPIRED: 'red',
-        };
-        return <Tag color={colors[status] || 'default'}>{status}</Tag>;
-      },
-    },
-    {
-      title: 'Action',
-      key: 'action',
-      render: (_, record) => (
-        <Button 
-          size="small" 
-          danger
-          onClick={() => handleCancelReservation(record.id)}
-        >
-          Cancel
-        </Button>
-      ),
-    },
-  ];
-
   if (loading) {
     return (
       <Layout style={{ minHeight: '100vh', background: '#f0f2f5' }}>
@@ -286,21 +237,6 @@ const UserDashboard = () => {
             </Card>
           </Col>
         </Row>
-
-        {/* Active Reservations */}
-        {reservations.length > 0 && (
-          <Card 
-            title="Active Reservations"
-            style={{ marginBottom: '24px' }}
-          >
-            <Table
-              columns={reservationColumns}
-              dataSource={reservations}
-              pagination={false}
-              rowKey="id"
-            />
-          </Card>
-        )}
 
         {/* Borrowing History Table */}
         <Card 

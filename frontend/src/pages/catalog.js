@@ -20,7 +20,7 @@ import BookCard from '../components/book/bookcard';
 import BookDetailModal from '../components/book/bookDetails';
 import { useNavigate } from 'react-router-dom';
 import { searchBooks, getBooksBySubject, getTrendingBooks, getBookWorkDetails } from '../services/openLibrary';
-import { reservationsAPI } from '../services/api';
+import { loansAPI } from '../services/api';
 
 
 const { Content } = Layout;
@@ -213,41 +213,38 @@ const Catalog = () => {
     }
   };
 
-// Borrow/Reserve book
+// Borrow book
 const handleBorrow = async (book) => {
   try {
     // Check if user is logged in
     const user = localStorage.getItem('user');
     if (!user) {
-      message.warning('Please login to reserve books');
+      message.warning('Please login to borrow books');
       navigate('/Auth');
       return;
     }
 
     setLoading(true);
     
-    // Create reservation
-    const reservationData = {
-      isbn: book.isbn,
-      title: book.title,
-      author: book.author,
-      coverImage: book.coverImage,
+    // Borrow book
+    const borrowData = {
+      bookId: book.key || book.id,
     };
     
-    await reservationsAPI.create(reservationData);
+    await loansAPI.borrow(borrowData);
     
-    message.success(`"${book.title}" reserved successfully! Pick it up at the library.`);
+    message.success(`"${book.title}" borrowed successfully! You have 14 days to return it.`);
     setIsModalVisible(false);
   } catch (error) {
-    console.error('Error reserving book:', error);
+    console.error('Error borrowing book:', error);
     
     // Handle specific error messages
     if (error.response?.status === 400) {
-      message.error(error.response.data.message || 'You already have a reservation for this book.');
+      message.error(error.response.data.message || 'Unable to borrow this book.');
     } else if (error.response?.status === 403) {
-      message.error('You have reached the maximum number of reservations.');
+      message.error('You have reached the maximum number of borrowed books.');
     } else {
-      message.error('Failed to reserve book. Please try again.');
+      message.error('Failed to borrow book. Please try again.');
     }
   } finally {
     setLoading(false);

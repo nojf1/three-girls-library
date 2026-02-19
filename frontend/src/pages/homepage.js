@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import BookCardHorizontal from '../components/book/BookCardHorizontal';
 import BookDetailModal from '../components/book/bookDetails';
 import { getBooksBySubject, getTrendingBooks, getBookWorkDetails } from '../services/openLibrary';
-import { reservationsAPI } from '../services/api';
+import { loansAPI } from '../services/api';
 
 const { Content } = Layout;
 const { Title } = Typography;
@@ -134,32 +134,29 @@ const handleBorrow = async (book) => {
     // Check if user is logged in
     const user = localStorage.getItem('user');
     if (!user) {
-      message.warning('Please login to reserve books');
+      message.warning('Please login to borrow books');
       navigate('/Auth');
       return;
     }
 
-    // Create reservation
-    const reservationData = {
-      isbn: book.isbn,
-      title: book.title,
-      author: book.author,
-      coverImage: book.coverImage,
+    // Borrow book
+    const borrowData = {
+      bookId: book.key || book.id,
     };
     
-    await reservationsAPI.create(reservationData);
+    await loansAPI.borrow(borrowData);
     
-    message.success(`"${book.title}" reserved successfully! Pick it up at the library.`);
+    message.success(`"${book.title}" borrowed successfully! You have 14 days to return it.`);
     setIsModalVisible(false);
   } catch (error) {
-    console.error('Error reserving book:', error);
+    console.error('Error borrowing book:', error);
     
     if (error.response?.status === 400) {
-      message.error(error.response.data.message || 'You already have a reservation for this book.');
+      message.error(error.response.data.message || 'Unable to borrow this book.');
     } else if (error.response?.status === 403) {
-      message.error('You have reached the maximum number of reservations.');
+      message.error('You have reached the maximum number of borrowed books.');
     } else {
-      message.error('Failed to reserve book. Please try again.');
+      message.error('Failed to borrow book. Please try again.');
     }
   }
 };

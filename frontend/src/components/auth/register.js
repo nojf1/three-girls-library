@@ -14,15 +14,16 @@ const handleRegister = async (values) => {
   try {
     // Call backend register API
     const response = await authAPI.register({
-      name: values.name,
+      fullName: values.fullName,
       email: values.email,
       phone: values.phone,
       password: values.password,
     });
 
-    const { token, user } = response.data;
+    const { token, userId, email, fullName, role } = response.data;
 
-    localStorage.setItem('user', JSON.stringify(user));
+    // Store user data and token
+    localStorage.setItem('user', JSON.stringify({ userId, email, fullName, role }));
     localStorage.setItem('token', token);
 
     message.success('Registration successful!');
@@ -45,7 +46,7 @@ const handleRegister = async (values) => {
         layout="vertical"
       >
         <Form.Item
-          name="name"
+          name="fullName"
           label="Full Name"
           rules={[
             { required: true, message: 'Please enter your name' },
