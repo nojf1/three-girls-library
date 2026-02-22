@@ -51,13 +51,12 @@ const Catalog = () => {
   const loadBooks = async () => {
     setLoading(true);
     try {
+      // Fetch all books from our own backend
       const response = await booksAPI.getAll(0, 100);
       const rawBooks = response.data.content || response.data;
 
-      console.log("rawBooks[0]:", rawBooks[0]); // DEBUG
+      // Enrich with cover images from Open Library using ISBN (no API call)
       const enriched = enrichBooksWithCovers(rawBooks);
-      console.log("enriched[0]:", enriched[0]);
-
       setAllBooks(enriched);
       setBooks(enriched);
 

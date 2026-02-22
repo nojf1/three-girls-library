@@ -57,6 +57,7 @@ const AdminDashboard = () => {
   const [isBookModalVisible, setIsBookModalVisible] = useState(false);
   const [editingBook, setEditingBook] = useState(null);
   const [bookLoading, setBookLoading] = useState(false);
+  const [fetchingISBN, setFetchingISBN] = useState(false);
   const [bookForm] = Form.useForm();
 
   // User Management State
@@ -235,6 +236,109 @@ const AdminDashboard = () => {
       ),
     },
   ];
+
+  // Fetch book info from Open Library by ISBN
+  const fetchBookByISBN = async () => {
+    const isbn = bookForm.getFieldValue("isbn");
+    if (!isbn) {
+      message.warning("Please enter an ISBN first");
+      return;
+    }
+    setFetchingISBN(true);
+    try {
+      // First check if this ISBN already exists in our DB
+      const existingBook = books.find(
+        (b) => b.isbn && b.isbn.replace(/-/g, "") === isbn.replace(/-/g, ""),
+      );
+      if (existingBook) {
+        message.error(
+          `This book already exists in the library: "${existingBook.title}". You can edit its stock in the book list instead.`,
+        );
+        setFetchingISBN(false);
+        return;
+      }
+
+      const cleanIsbn = isbn.replace(/-/g, "");
+      const response = await fetch(
+        `https://openlibrary.org/api/books?bibkeys=ISBN:${cleanIsbn}&format=json&jscmd=data`,
+      );
+      const data = await response.json();
+      const key = `ISBN:${cleanIsbn}`;
+
+      if (!data[key]) {
+        message.error(
+          "Book not found on Open Library. Please enter details manually.",
+        );
+        return;
+      }
+
+      const book = data[key];
+
+      // Extract description
+      let description = "";
+      if (book.excerpts && book.excerpts.length > 0) {
+        description = book.excerpts[0].text;
+      } else if (book.notes) {
+        description =
+          typeof book.notes === "string" ? book.notes : book.notes.value;
+      }
+
+      // Extract genre from subjects
+      let genre = "";
+      if (book.subjects && book.subjects.length > 0) {
+        const subjectName = book.subjects[0].name || book.subjects[0];
+        // Map to our genre list
+        const subjectLower = subjectName.toLowerCase();
+        if (subjectLower.includes("fiction")) genre = "Fiction";
+        else if (
+          subjectLower.includes("science fiction") ||
+          subjectLower.includes("sci-fi")
+        )
+          genre = "Science Fiction";
+        else if (subjectLower.includes("fantasy")) genre = "Fantasy";
+        else if (
+          subjectLower.includes("mystery") ||
+          subjectLower.includes("detective")
+        )
+          genre = "Mystery";
+        else if (subjectLower.includes("thriller")) genre = "Thriller";
+        else if (subjectLower.includes("romance")) genre = "Romance";
+        else if (
+          subjectLower.includes("biography") ||
+          subjectLower.includes("autobio")
+        )
+          genre = "Biography";
+        else if (subjectLower.includes("memoir")) genre = "Memoir";
+        else if (
+          subjectLower.includes("history") ||
+          subjectLower.includes("historical")
+        )
+          genre = "History";
+        else if (subjectLower.includes("adventure")) genre = "Adventure";
+        else genre = "Non-Fiction";
+      }
+
+      // Fill form fields
+      bookForm.setFieldsValue({
+        title: book.title || "",
+        author:
+          book.authors && book.authors.length > 0 ? book.authors[0].name : "",
+        genre: genre || undefined,
+        publishedYear: book.publish_date
+          ? parseInt(book.publish_date.slice(-4))
+          : undefined,
+        description: description || "",
+      });
+
+      message.success("Book info fetched successfully!");
+    } catch (error) {
+      message.error(
+        "Failed to fetch book info. Please check your internet connection.",
+      );
+    } finally {
+      setFetchingISBN(false);
+    }
+  };
 
   const handleAddBook = () => {
     setEditingBook(null);
@@ -764,14 +868,50 @@ const AdminDashboard = () => {
             layout="vertical"
             onFinish={handleBookFormSubmit}
           >
+            {/* ISBN + Fetch Button */}
+            <Form.Item label="ISBN" required>
+              <Space.Compact style={{ width: "100%" }}>
+                <Form.Item
+                  name="isbn"
+                  noStyle
+                  rules={[{ required: true, message: "ISBN is required" }]}
+                >
+                  <Input
+                    placeholder="e.g. 978-0-439-70818-0"
+                    style={{ width: "calc(100% - 140px)" }}
+                    disabled={!!editingBook}
+                  />
+                </Form.Item>
+                {!editingBook && (
+                  <Button
+                    type="primary"
+                    loading={fetchingISBN}
+                    onClick={fetchBookByISBN}
+                    style={{ width: "140px" }}
+                  >
+                    Fetch Book Info
+                  </Button>
+                )}
+              </Space.Compact>
+              {!editingBook && (
+                <div
+                  style={{ color: "#888", fontSize: "12px", marginTop: "4px" }}
+                >
+                  Enter ISBN then click "Fetch Book Info" to auto-fill details
+                  from Open Library
+                </div>
+              )}
+            </Form.Item>
+
+            {/* Auto-filled fields */}
             <Row gutter={16}>
               <Col span={12}>
                 <Form.Item
                   name="title"
-                  label="Book Title"
+                  label="Title"
                   rules={[{ required: true, message: "Required" }]}
                 >
-                  <Input placeholder="Enter book title" />
+                  <Input placeholder="Auto-filled from Open Library" />
                 </Form.Item>
               </Col>
               <Col span={12}>
@@ -780,10 +920,11 @@ const AdminDashboard = () => {
                   label="Author"
                   rules={[{ required: true, message: "Required" }]}
                 >
-                  <Input placeholder="Enter author name" />
+                  <Input placeholder="Auto-filled from Open Library" />
                 </Form.Item>
               </Col>
             </Row>
+
             <Row gutter={16}>
               <Col span={12}>
                 <Form.Item
@@ -791,7 +932,7 @@ const AdminDashboard = () => {
                   label="Genre"
                   rules={[{ required: true, message: "Required" }]}
                 >
-                  <Select placeholder="Select genre">
+                  <Select placeholder="Auto-filled or select manually">
                     <Select.Option value="Fiction">Fiction</Select.Option>
                     <Select.Option value="Science Fiction">
                       Science Fiction
@@ -811,33 +952,35 @@ const AdminDashboard = () => {
                 </Form.Item>
               </Col>
               <Col span={12}>
-                <Form.Item name="isbn" label="ISBN">
-                  <Input placeholder="978-0-123-45678-9" />
-                </Form.Item>
-              </Col>
-            </Row>
-            <Row gutter={16}>
-              <Col span={12}>
                 <Form.Item name="publishedYear" label="Published Year">
-                  <Input type="number" placeholder="2024" />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item
-                  name="totalCopies"
-                  label="Total Copies"
-                  rules={[{ required: true, message: "Required" }]}
-                >
-                  <Input type="number" min={1} placeholder="1" />
+                  <Input
+                    type="number"
+                    placeholder="Auto-filled from Open Library"
+                  />
                 </Form.Item>
               </Col>
             </Row>
+
             <Form.Item name="description" label="Description">
               <Input.TextArea
                 rows={3}
-                placeholder="Book description (optional — will be fetched from Open Library via ISBN)"
+                placeholder="Auto-filled from Open Library"
               />
             </Form.Item>
+
+            <Form.Item
+              name="totalCopies"
+              label="Total Copies"
+              rules={[{ required: true, message: "Required" }]}
+            >
+              <Input
+                type="number"
+                min={1}
+                placeholder="Enter number of copies in library"
+                style={{ width: "200px" }}
+              />
+            </Form.Item>
+
             <Form.Item>
               <Space>
                 <Button type="primary" htmlType="submit" loading={bookLoading}>

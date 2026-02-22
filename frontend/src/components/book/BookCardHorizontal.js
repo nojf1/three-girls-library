@@ -5,12 +5,6 @@ import { BookOutlined } from "@ant-design/icons";
 const { Meta } = Card;
 
 const BookCardHorizontal = ({ book, onClick }) => {
-  console.log("BookCardHorizontal rendering:", {
-    title: book.title,
-    coverImageUrl: book.coverImageUrl,
-    hasCover: !!book.coverImageUrl,
-  });
-
   return (
     <Card
       hoverable

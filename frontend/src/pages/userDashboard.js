@@ -60,9 +60,6 @@ const UserDashboard = () => {
       const loans = loansResponse.data || [];
       const penalties = penaltiesResponse.data || [];
 
-      console.log("Loans:", loans); // DEBUG
-      console.log("Penalties:", penalties); // DEBUG
-
       // Calculate statistics
       const activeLoanCount = loans.filter((loan) => !loan.returnedAt).length;
       const returnedLoanCount = loans.filter((loan) => loan.returnedAt).length;
