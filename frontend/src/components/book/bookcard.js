@@ -1,17 +1,17 @@
-import React from 'react';
-import { Card, Button, Tag, Space, Typography } from 'antd';
-import { BookOutlined, EyeOutlined } from '@ant-design/icons';
+import React from "react";
+import { Card, Button, Tag, Space, Typography } from "antd";
+import { BookOutlined, EyeOutlined } from "@ant-design/icons";
 
 const { Meta } = Card;
 const { Text, Paragraph } = Typography;
 
 const BookCard = ({ book, onViewDetails, onBorrow }) => {
-  const isAvailable = book.status === 'available';
+  const isAvailable = book.availableCopies > 0;
 
   // Handle card click - opens book details
   const handleCardClick = (e) => {
     // Prevent card click when clicking on buttons
-    if (e.target.closest('button')) {
+    if (e.target.closest("button")) {
       return;
     }
     if (onViewDetails) {
@@ -39,57 +39,53 @@ const BookCard = ({ book, onViewDetails, onBorrow }) => {
     <Card
       hoverable
       onClick={handleCardClick}
-      style={{ 
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        cursor: 'pointer',
+      style={{
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        cursor: "pointer",
       }}
       cover={
         <div
           style={{
-            height: '280px',
-            background: book.coverImage 
-              ? `url(${book.coverImage}) center/cover no-repeat`
-              : '#f0f0f0',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            position: 'relative',
+            height: "280px",
+            background: book.coverImageUrl
+              ? `url(${book.coverImageUrl}) center/cover no-repeat`
+              : "#f0f0f0",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            position: "relative",
           }}
         >
-          {!book.coverImage && (
-            <BookOutlined style={{ fontSize: '64px', color: '#d9d9d9' }} />
+          {!book.coverImageUrl && (
+            <BookOutlined style={{ fontSize: "64px", color: "#d9d9d9" }} />
           )}
           {/* Status Badge */}
           <Tag
-            color={isAvailable ? 'green' : 'orange'}
+            color={isAvailable ? "green" : "orange"}
             style={{
-              position: 'absolute',
-              top: '12px',
-              right: '12px',
+              position: "absolute",
+              top: "12px",
+              right: "12px",
               margin: 0,
             }}
           >
-            {isAvailable ? '✓ Available' : '✗ Borrowed'}
+            {isAvailable ? "✓ Available" : "✗ Borrowed"}
           </Tag>
         </div>
       }
       actions={[
-        <Button
-          type="link"
-          icon={<EyeOutlined />}
-          onClick={handleDetailsClick}
-        >
+        <Button type="link" icon={<EyeOutlined />} onClick={handleDetailsClick}>
           Details
         </Button>,
         <Button
-          type={isAvailable ? 'primary' : 'default'}
+          type={isAvailable ? "primary" : "default"}
           disabled={!isAvailable}
           onClick={handleBorrowClick}
-          style={{ width: '90%' }}
+          style={{ width: "90%" }}
         >
-          {isAvailable ? 'Borrow' : 'Not Available'}
+          {isAvailable ? "Borrow" : "Not Available"}
         </Button>,
       ]}
     >
@@ -97,13 +93,13 @@ const BookCard = ({ book, onViewDetails, onBorrow }) => {
         title={
           <Paragraph
             ellipsis={{ rows: 2, tooltip: book.title }}
-            style={{ marginBottom: '8px', fontWeight: 600 }}
+            style={{ marginBottom: "8px", fontWeight: 600 }}
           >
             {book.title}
           </Paragraph>
         }
         description={
-          <Space direction="vertical" size="small" style={{ width: '100%' }}>
+          <Space direction="vertical" size="small" style={{ width: "100%" }}>
             <Text type="secondary" ellipsis>
               by {book.author}
             </Text>
@@ -114,7 +110,7 @@ const BookCard = ({ book, onViewDetails, onBorrow }) => {
               )}
             </Space>
             {book.isbn && (
-              <Text type="secondary" style={{ fontSize: '12px' }}>
+              <Text type="secondary" style={{ fontSize: "12px" }}>
                 ISBN: {book.isbn}
               </Text>
             )}

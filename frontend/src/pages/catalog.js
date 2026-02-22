@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Layout, 
-  Input, 
-  Select, 
-  Button, 
-  Row, 
-  Col, 
+import React, { useState, useEffect } from "react";
+import {
+  Layout,
+  Input,
+  Select,
+  Button,
+  Row,
+  Col,
   Pagination,
   Space,
   Typography,
@@ -14,47 +14,35 @@ import {
   Empty,
   message,
   Tag,
-} from 'antd';
-import { SearchOutlined, ReloadOutlined } from '@ant-design/icons';
-import BookCard from '../components/book/bookcard';
-import BookDetailModal from '../components/book/bookDetails';
-import { useNavigate } from 'react-router-dom';
-import { searchBooks, getBooksBySubject, getTrendingBooks, getBookWorkDetails } from '../services/openLibrary';
-import { loansAPI } from '../services/api';
-
+} from "antd";
+import { SearchOutlined, ReloadOutlined } from "@ant-design/icons";
+import BookCard from "../components/book/bookcard";
+import BookDetailModal from "../components/book/bookDetails";
+import { useNavigate } from "react-router-dom";
+import { booksAPI, loansAPI } from "../services/api";
+import {
+  enrichBooksWithCovers,
+  getDescriptionByISBN,
+} from "../services/openLibrary";
 
 const { Content } = Layout;
 const { Title, Text } = Typography;
 const { Search } = Input;
 
 const Catalog = () => {
-   const navigate = useNavigate();
+  const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchInput, setSearchInput] = useState(''); 
-  const [selectedGenre, setSelectedGenre] = useState('all');
-  const [sortBy, setSortBy] = useState('relevance'); 
+  const [searchInput, setSearchInput] = useState("");
+  const [selectedGenre, setSelectedGenre] = useState("all");
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [books, setBooks] = useState([]);
+  const [allBooks, setAllBooks] = useState([]); // full list for client-side filter
   const [loading, setLoading] = useState(true);
-  const [totalBooks, setTotalBooks] = useState(0);
   const [selectedBook, setSelectedBook] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [genres, setGenres] = useState([]);
 
-  const pageSize = 12; // Books per page
-
-  // Genre options
-  const genres = [
-    { value: 'all', label: 'All Genres' },
-    { value: 'fiction', label: 'Fiction' },
-    { value: 'science', label: 'Science' },
-    { value: 'history', label: 'History' },
-    { value: 'fantasy', label: 'Fantasy' },
-    { value: 'mystery', label: 'Mystery' },
-    { value: 'romance', label: 'Romance' },
-    { value: 'biography', label: 'Biography' },
-    { value: 'classic', label: 'Classic' },
-  ];
+  const pageSize = 12;
 
   useEffect(() => {
     loadBooks();
@@ -63,233 +51,162 @@ const Catalog = () => {
   const loadBooks = async () => {
     setLoading(true);
     try {
-      // Load trending books by default
-      const result = await getTrendingBooks(50);
-      setBooks(result);
-      setTotalBooks(result.length);
+      const response = await booksAPI.getAll(0, 100);
+      const rawBooks = response.data.content || response.data;
+
+      console.log("rawBooks[0]:", rawBooks[0]); // DEBUG
+      const enriched = enrichBooksWithCovers(rawBooks);
+      console.log("enriched[0]:", enriched[0]);
+
+      setAllBooks(enriched);
+      setBooks(enriched);
+
+      // Build genre list from actual DB data
+      const genreList = [
+        "all",
+        ...new Set(enriched.map((b) => b.genre).filter(Boolean)),
+      ];
+      setGenres(
+        genreList.map((g) => ({
+          value: g,
+          label: g === "all" ? "All Genres" : g,
+        })),
+      );
     } catch (error) {
-      console.error('Error loading books:', error);
-      message.error('Failed to load books');
+      console.error("Error loading books:", error);
+      message.error("Failed to load books. Is the backend running?");
     } finally {
       setLoading(false);
     }
   };
 
-
-// Search with Open Library API 
   const handleSearch = async (value) => {
-    const trimmedValue = value?.trim() || searchInput.trim();
-    
-    if (!trimmedValue) {
-      message.warning('Please enter a search term');
+    const keyword = value?.trim() || searchInput.trim();
+    if (!keyword) {
+      setBooks(allBooks);
       return;
     }
-
     setLoading(true);
-    setSearchTerm(trimmedValue);
     setCurrentPage(1);
-
     try {
-      let result;
-      
-      // Check if it's an ISBN search (numbers only, 10 or 13 digits)
-      const isISBN = /^\d{10}(\d{3})?$/.test(trimmedValue.replace(/-/g, ''));
-      
-      if (isISBN) {
-        message.info('Searching by ISBN...');
-        result = await searchBooks(`isbn:${trimmedValue}`, 20);
-      } else {
-        // Normal search
-        result = await searchBooks(trimmedValue, 50);
-      }
-      
-      setBooks(result);
-      setTotalBooks(result.length);
-      
-      if (result.length === 0) {
-        message.info('No books found. Try a different search term.');
-      } else {
-        message.success(`Found ${result.length} books!`);
-      }
+      const response = await booksAPI.search(keyword, 0, 100);
+      const rawBooks = response.data.content || response.data;
+      const enriched = enrichBooksWithCovers(rawBooks);
+      setBooks(enriched);
+      if (enriched.length === 0) message.info("No books found.");
+      else message.success(`Found ${enriched.length} books!`);
     } catch (error) {
-      console.error('Error searching books:', error);
-      message.error('Search failed. Please try again.');
+      message.error("Search failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  // NEW: Quick search suggestions
-  const getSearchSuggestion = () => {
-    const suggestions = [
-      'harry potter',
-      'lord of the rings',
-      'gatsby',
-      'pride and prejudice',
-      '1984',
-      'to kill a mockingbird',
-      'the hobbit',
-      'dune',
-      'neuromancer',
-      'foundation'
-    ];
-    return suggestions[Math.floor(Math.random() * suggestions.length)];
-  };
-  // Filter by genre with Open Library API
-  const handleGenreChange = async (value) => {
+  const handleGenreChange = (value) => {
     setSelectedGenre(value);
     setCurrentPage(1);
-
-    if (value === 'all') {
-      loadBooks();
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const result = await getBooksBySubject(value, 50);
-      setBooks(result);
-      setTotalBooks(result.length);
-    } catch (error) {
-      console.error('Error filtering books:', error);
-      message.error('Failed to filter books');
-    } finally {
-      setLoading(false);
+    if (value === "all") {
+      setBooks(allBooks);
+    } else {
+      setBooks(allBooks.filter((b) => b.genre === value));
     }
   };
 
-  // NEW: Clear search and filters
   const handleClearSearch = () => {
-    setSearchInput('');
-    setSearchTerm('');
-    setSelectedGenre('all');
-    setSortBy('relevance');
+    setSearchInput("");
+    setSelectedGenre("all");
     setCurrentPage(1);
-    loadBooks();
-    message.info('Search cleared');
+    setBooks(allBooks);
   };
 
-  // Refresh - reload trending books
-  const handleRefresh = () => {
-    setSearchTerm('');
-    setSelectedGenre('all');
-    setCurrentPage(1);
-    loadBooks();
-  };
-
-  // View book details
+  // View book details — fetch description from Open Library by ISBN
   const handleBookClick = async (book) => {
-    console.log('Book clicked:', book);
-    
-    // Open modal immediately with basic info
     setSelectedBook(book);
     setIsModalVisible(true);
-    setLoadingDetails(true);
-    
-    // Fetch full details (description) in background
-    if (book.id) {
+
+    if (book.isbn && !book.description) {
+      setLoadingDetails(true);
       try {
-        console.log('Fetching details for:', book.id);
-        const details = await getBookWorkDetails(book.id);
-        console.log('Got details:', details);
-        
-        // Update book with full description
-        setSelectedBook({
-          ...book,
-          description: details.description || 'No description available for this book.',
-          subjects: details.subjects || book.subjects,
-        });
-      } catch (error) {
-        console.error('Error fetching book details:', error);
-        setSelectedBook({
-          ...book,
-          description: 'Unable to load description at this time.',
-        });
+        const { getDescriptionByISBN } =
+          await import("../services/openLibrary");
+        const desc = await getDescriptionByISBN(book.isbn);
+        setSelectedBook((prev) => ({
+          ...prev,
+          description: desc || book.description || "No description available.",
+        }));
+      } catch (e) {
+        // description not critical
       } finally {
         setLoadingDetails(false);
       }
-    } else {
-      setLoadingDetails(false);
     }
   };
 
-// Borrow book
-const handleBorrow = async (book) => {
-  try {
-    // Check if user is logged in
-    const user = localStorage.getItem('user');
+  // Borrow book — use DB book ID (Long)
+  const handleBorrow = async (book) => {
+    const user = localStorage.getItem("user");
     if (!user) {
-      message.warning('Please login to borrow books');
-      navigate('/Auth');
+      message.warning("Please login to borrow books");
+      navigate("/Auth");
       return;
     }
-
-    setLoading(true);
-    
-    // Borrow book
-    const borrowData = {
-      bookId: book.key || book.id,
-    };
-    
-    await loansAPI.borrow(borrowData);
-    
-    message.success(`"${book.title}" borrowed successfully! You have 14 days to return it.`);
-    setIsModalVisible(false);
-  } catch (error) {
-    console.error('Error borrowing book:', error);
-    
-    // Handle specific error messages
-    if (error.response?.status === 400) {
-      message.error(error.response.data.message || 'Unable to borrow this book.');
-    } else if (error.response?.status === 403) {
-      message.error('You have reached the maximum number of borrowed books.');
-    } else {
-      message.error('Failed to borrow book. Please try again.');
+    try {
+      await loansAPI.borrow({ bookId: book.id });
+      message.success(`"${book.title}" borrowed successfully! Due in 14 days.`);
+      setIsModalVisible(false);
+      // Refresh books to update availableCopies
+      loadBooks();
+    } catch (error) {
+      if (error.response?.status === 400) {
+        message.error(
+          error.response.data.message || "Unable to borrow this book.",
+        );
+      } else {
+        message.error("Failed to borrow book. Please try again.");
+      }
     }
-  } finally {
-    setLoading(false);
-  }
-};
-
-  // Pagination
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Calculate displayed books for current page
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const startIndex = (currentPage - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const currentBooks = books.slice(startIndex, endIndex);
+  const currentBooks = books.slice(startIndex, startIndex + pageSize);
 
   return (
-    <Layout style={{ minHeight: '100vh', background: '#f0f2f5' }}>
-      <Content style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
-        {/* Header Section */}
-        <div style={{ marginBottom: '32px' }}>
-          <Title level={2} style={{ marginBottom: '8px' }}>
+    <Layout style={{ minHeight: "100vh", background: "#f0f2f5" }}>
+      <Content
+        style={{
+          padding: "24px",
+          maxWidth: "1400px",
+          margin: "0 auto",
+          width: "100%",
+        }}
+      >
+        <div style={{ marginBottom: "32px" }}>
+          <Title level={2} style={{ marginBottom: "8px" }}>
             📚 Browse Books
           </Title>
-          <Text type="secondary" style={{ fontSize: '16px' }}>
-            Powered by Open Library - Search millions of books
+          <Text type="secondary" style={{ fontSize: "16px" }}>
+            Showing all books available in Three Girls Library
           </Text>
         </div>
 
-        {/* Search and Filter Section */}
-       {/* Search and Filter Section - IMPROVED */}
+        {/* Search and Filter */}
         <div
-          style={{ 
-            marginBottom: '24px',
-            padding: '24px',
-            background: '#fff',
-            borderRadius: '8px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+          style={{
+            marginBottom: "24px",
+            padding: "24px",
+            background: "#fff",
+            borderRadius: "8px",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
           }}
         >
-          {/* Main Search Row */}
-          <Flex gap="middle" wrap="wrap" style={{ marginBottom: '16px' }}>
+          <Flex gap="middle" wrap="wrap">
             <Search
-              placeholder={`Try searching "${getSearchSuggestion()}"...`}
+              placeholder="Search by title, author, genre or ISBN..."
               allowClear
               enterButton={
                 <Button type="primary" icon={<SearchOutlined />}>
@@ -300,118 +217,60 @@ const handleBorrow = async (book) => {
               onSearch={handleSearch}
               onChange={(e) => setSearchInput(e.target.value)}
               value={searchInput}
-              style={{ flex: 1, minWidth: '300px' }}
+              style={{ flex: 1, minWidth: "300px" }}
             />
-
             <Select
               size="large"
               value={selectedGenre}
               onChange={handleGenreChange}
               options={genres}
               style={{ width: 200 }}
-              placeholder="Select Genre"
+              placeholder="All Genres"
             />
-
-            <Button 
-              size="large" 
+            <Button
+              size="large"
               icon={<ReloadOutlined />}
-              onClick={handleRefresh}
+              onClick={handleClearSearch}
             >
               Reset
             </Button>
-
-            {(searchTerm || selectedGenre !== 'all') && (
-              <Button 
-                size="large" 
-                danger
-                onClick={handleClearSearch}
-              >
-                Clear All
-              </Button>
-            )}
           </Flex>
-
-          {/* Search Tips */}
-          <div style={{ fontSize: '12px', color: '#666' }}>
-            <Space split="|">
-              <span>💡 <strong>Tip:</strong> Try "author:tolkien" or "subject:fantasy"</span>
-              <span>Search by ISBN for exact matches</span>
-              <span>Use quotes for exact phrases: "lord of the rings"</span>
-            </Space>
-          </div>
-
-          {/* Active Filters Display */}
-          {(searchTerm || selectedGenre !== 'all') && (
-            <div style={{ marginTop: '12px' }}>
-              <Text type="secondary" style={{ marginRight: '8px' }}>Active filters:</Text>
-              {searchTerm && (
-                <Tag 
-                  closable 
-                  onClose={() => {
-                    setSearchTerm('');
-                    setSearchInput('');
-                    loadBooks();
-                  }}
-                  color="blue"
-                >
-                  Search: "{searchTerm}"
-                </Tag>
-              )}
-              {selectedGenre !== 'all' && (
-                <Tag 
-                  closable 
-                  onClose={() => {
-                    setSelectedGenre('all');
-                    loadBooks();
-                  }}
-                  color="green"
-                >
-                  Genre: {selectedGenre}
-                </Tag>
-              )}
-            </div>
-          )}
         </div>
 
-        {/* Loading State */}
         {loading && (
-          <div style={{ textAlign: 'center', padding: '60px 0' }}>
-            <Spin size="large" tip="Loading books from Open Library..." />
+          <div style={{ textAlign: "center", padding: "60px 0" }}>
+            <Spin size="large" tip="Loading books..." />
           </div>
         )}
 
-        {/* Empty State */}
         {!loading && currentBooks.length === 0 && (
-          <Empty
-            description="No books found"
-            style={{ padding: '60px 0' }}
-          />
+          <Empty description="No books found" style={{ padding: "60px 0" }} />
         )}
 
-   {/* Results Count */}
-        {!loading && currentBooks.length > 0 && (
-          <Flex justify="space-between" align="center" style={{ marginBottom: '16px' }}>
-            <Space>
-              <Text type="secondary">
-                Showing <strong>{startIndex + 1}-{Math.min(endIndex, totalBooks)}</strong> of{' '}
-                <strong>{totalBooks}</strong> books
-                {searchTerm && <> for "<strong>{searchTerm}</strong>"</>}
-                {selectedGenre !== 'all' && <> in <strong>{selectedGenre}</strong></>}
-              </Text>
-            </Space>
-            <Text type="secondary">
-              Page {currentPage} of {Math.ceil(totalBooks / pageSize)}
-            </Text>
-          </Flex>
-        )}
-
-        {/* Books Grid */}
         {!loading && currentBooks.length > 0 && (
           <>
-            <Row gutter={[16, 16]} style={{ marginBottom: '32px' }}>
+            <Flex
+              justify="space-between"
+              align="center"
+              style={{ marginBottom: "16px" }}
+            >
+              <Text type="secondary">
+                Showing{" "}
+                <strong>
+                  {startIndex + 1}–
+                  {Math.min(startIndex + pageSize, books.length)}
+                </strong>{" "}
+                of <strong>{books.length}</strong> books
+              </Text>
+              <Text type="secondary">
+                Page {currentPage} of {Math.ceil(books.length / pageSize)}
+              </Text>
+            </Flex>
+
+            <Row gutter={[16, 16]} style={{ marginBottom: "32px" }}>
               {currentBooks.map((book) => (
-                <Col key={book.id} xs={24} sm={12} md={8} lg={6} xl={6}>
-                  <BookCard 
+                <Col key={book.id} xs={24} sm={12} md={8} lg={6}>
+                  <BookCard
                     book={book}
                     onViewDetails={handleBookClick}
                     onBorrow={handleBorrow}
@@ -420,22 +279,21 @@ const handleBorrow = async (book) => {
               ))}
             </Row>
 
-            {/* Pagination */}
-            <Flex justify="center" style={{ marginTop: '32px' }}>
+            <Flex justify="center" style={{ marginTop: "32px" }}>
               <Pagination
                 current={currentPage}
-                total={totalBooks}
+                total={books.length}
                 pageSize={pageSize}
                 onChange={handlePageChange}
                 showSizeChanger={false}
-                showTotal={(total, range) => `${range[0]}-${range[1]} of ${total} books`}
-                size="default"
+                showTotal={(total, range) =>
+                  `${range[0]}-${range[1]} of ${total} books`
+                }
               />
             </Flex>
           </>
         )}
 
-        {/* Book Detail Modal */}
         <BookDetailModal
           visible={isModalVisible}
           book={selectedBook}

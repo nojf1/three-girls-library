@@ -1,40 +1,42 @@
-import React from 'react';
-import { Card } from 'antd';
-import { BookOutlined } from '@ant-design/icons';
+import React from "react";
+import { Card } from "antd";
+import { BookOutlined } from "@ant-design/icons";
 
 const { Meta } = Card;
 
 const BookCardHorizontal = ({ book, onClick }) => {
-  console.log('BookCardHorizontal rendering:', {
+  console.log("BookCardHorizontal rendering:", {
     title: book.title,
-    coverImage: book.coverImage,
-    hasCover: !!book.coverImage
-  }); // DEBUG
+    coverImageUrl: book.coverImageUrl,
+    hasCover: !!book.coverImageUrl,
+  });
 
   return (
     <Card
       hoverable
-      style={{ 
-        width: '200px',
+      style={{
+        width: "200px",
         flexShrink: 0,
       }}
       cover={
         <div
           style={{
-            height: '270px',
-            backgroundImage: book.coverImage ? `url(${book.coverImage})` : 'none',
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-            backgroundColor: '#f0f0f0',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            height: "270px",
+            backgroundImage: book.coverImageUrl
+              ? `url(${book.coverImageUrl})`
+              : "none",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+            backgroundColor: "#f0f0f0",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
           onClick={() => onClick && onClick(book)}
         >
-          {!book.coverImage && (
-            <BookOutlined style={{ fontSize: '64px', color: '#d9d9d9' }} />
+          {!book.coverImageUrl && (
+            <BookOutlined style={{ fontSize: "64px", color: "#d9d9d9" }} />
           )}
         </div>
       }
@@ -42,11 +44,11 @@ const BookCardHorizontal = ({ book, onClick }) => {
     >
       <Meta
         title={
-          <div 
-            style={{ 
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
+          <div
+            style={{
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
             }}
             title={book.title}
           >
@@ -54,11 +56,11 @@ const BookCardHorizontal = ({ book, onClick }) => {
           </div>
         }
         description={
-          <div 
-            style={{ 
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
+          <div
+            style={{
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
             }}
             title={book.author}
           >

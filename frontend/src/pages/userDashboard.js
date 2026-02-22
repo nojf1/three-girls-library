@@ -1,26 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Layout, 
-  Card, 
-  Table, 
-  Button, 
-  Tag, 
-  Row, 
+import React, { useState, useEffect } from "react";
+import {
+  Layout,
+  Card,
+  Table,
+  Button,
+  Tag,
+  Row,
   Col,
   Statistic,
   Space,
   message,
   Empty,
-  Spin
-} from 'antd';
-import { 
-  BookOutlined, 
+  Spin,
+} from "antd";
+import {
+  BookOutlined,
   ClockCircleOutlined,
   DollarOutlined,
-  CheckCircleOutlined
-} from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
-import { loansAPI, penaltiesAPI } from '../services/api';
+  CheckCircleOutlined,
+} from "@ant-design/icons";
+import { useNavigate } from "react-router-dom";
+import { loansAPI, penaltiesAPI } from "../services/api";
 
 const { Content } = Layout;
 
@@ -38,9 +38,9 @@ const UserDashboard = () => {
 
   useEffect(() => {
     // Check if user is logged in
-    const user = localStorage.getItem('user');
+    const user = localStorage.getItem("user");
     if (!user) {
-      navigate('/Auth');
+      navigate("/Auth");
       return;
     }
 
@@ -60,13 +60,16 @@ const UserDashboard = () => {
       const loans = loansResponse.data || [];
       const penalties = penaltiesResponse.data || [];
 
-      console.log('Loans:', loans); // DEBUG
-      console.log('Penalties:', penalties); // DEBUG
+      console.log("Loans:", loans); // DEBUG
+      console.log("Penalties:", penalties); // DEBUG
 
       // Calculate statistics
-      const activeLoanCount = loans.filter(loan => !loan.returnDate).length;
-      const returnedLoanCount = loans.filter(loan => loan.returnDate).length;
-      const totalPenalties = penalties.reduce((sum, penalty) => sum + penalty.amount, 0);
+      const activeLoanCount = loans.filter((loan) => !loan.returnedAt).length;
+      const returnedLoanCount = loans.filter((loan) => loan.returnedAt).length;
+      const totalPenalties = penalties.reduce(
+        (sum, penalty) => sum + penalty.amount,
+        0,
+      );
 
       setStats({
         booksBorrowed: activeLoanCount,
@@ -76,15 +79,19 @@ const UserDashboard = () => {
       });
 
       // Format loans
-      const formattedLoans = loans.map(loan => ({
+      const formattedLoans = loans.map((loan) => ({
         key: loan.id,
         id: loan.id,
-        bookTitle: loan.book?.title || loan.bookTitle || 'N/A',
-        author: loan.book?.author || loan.author || 'N/A',
-        borrowingDate: loan.loanDate,
+        bookTitle: loan.book?.title || loan.bookTitle || "N/A",
+        author: loan.book?.author || loan.author || "N/A",
+        borrowingDate: loan.borrowedAt,
         dueDate: loan.dueDate,
-        returnDate: loan.returnDate,
-        status: loan.returnDate ? 'returned' : 'active',
+        returnDate: loan.returnedAt,
+        status: loan.returnedAt
+          ? "returned"
+          : loan.status === "OVERDUE"
+            ? "overdue"
+            : "active",
         penalty: loan.penalty || 0,
       }));
 
@@ -92,10 +99,11 @@ const UserDashboard = () => {
 
       // Set reservations to empty (not yet implemented in backend)
       setReservations([]);
-
     } catch (error) {
-      console.error('Error loading dashboard:', error);
-      message.error(error.response?.data?.message || 'Failed to load dashboard data');
+      console.error("Error loading dashboard:", error);
+      message.error(
+        error.response?.data?.message || "Failed to load dashboard data",
+      );
     } finally {
       setLoading(false);
     }
@@ -104,53 +112,57 @@ const UserDashboard = () => {
   // Table columns for loans
   const loanColumns = [
     {
-      title: 'Books',
-      dataIndex: 'bookTitle',
-      key: 'bookTitle',
+      title: "Books",
+      dataIndex: "bookTitle",
+      key: "bookTitle",
       render: (text, record) => (
         <div>
-          <div style={{ fontWeight: 'bold' }}>{text}</div>
-          <div style={{ color: '#666', fontSize: '12px' }}>{record.author}</div>
+          <div style={{ fontWeight: "bold" }}>{text}</div>
+          <div style={{ color: "#666", fontSize: "12px" }}>{record.author}</div>
         </div>
       ),
     },
     {
-      title: 'Borrowing date',
-      dataIndex: 'borrowingDate',
-      key: 'borrowingDate',
-      render: (date) => date ? new Date(date).toLocaleDateString() : '-',
+      title: "Borrowing date",
+      dataIndex: "borrowingDate",
+      key: "borrowingDate",
+      render: (date) => (date ? new Date(date).toLocaleDateString() : "-"),
     },
     {
-      title: 'Due date',
-      dataIndex: 'dueDate',
-      key: 'dueDate',
+      title: "Due date",
+      dataIndex: "dueDate",
+      key: "dueDate",
       render: (date, record) => {
-        if (!date || record.status === 'returned') return '-';
-        
+        if (!date || record.status === "returned") return "-";
+
         const dueDate = new Date(date);
         const today = new Date();
         const isOverdue = dueDate < today;
-        
+
         return (
-          <span style={{ color: isOverdue ? '#ff4d4f' : 'inherit' }}>
+          <span style={{ color: isOverdue ? "#ff4d4f" : "inherit" }}>
             {dueDate.toLocaleDateString()}
-            {isOverdue && <Tag color="red" style={{ marginLeft: 8 }}>OVERDUE</Tag>}
+            {isOverdue && (
+              <Tag color="red" style={{ marginLeft: 8 }}>
+                OVERDUE
+              </Tag>
+            )}
           </span>
         );
       },
     },
     {
-      title: 'Return date',
-      dataIndex: 'returnDate',
-      key: 'returnDate',
-      render: (date) => date ? new Date(date).toLocaleDateString() : '-',
+      title: "Return date",
+      dataIndex: "returnDate",
+      key: "returnDate",
+      render: (date) => (date ? new Date(date).toLocaleDateString() : "-"),
     },
     {
-      title: 'Status',
-      key: 'status',
+      title: "Status",
+      key: "status",
       render: (_, record) => (
         <Space direction="vertical" size="small">
-          {record.status === 'active' ? (
+          {record.status === "active" ? (
             <Tag color="green">Active</Tag>
           ) : (
             <Tag color="default">Returned</Tag>
@@ -159,11 +171,11 @@ const UserDashboard = () => {
       ),
     },
     {
-      title: 'Penalty',
-      dataIndex: 'penalty',
-      key: 'penalty',
+      title: "Penalty",
+      dataIndex: "penalty",
+      key: "penalty",
       render: (penalty) => (
-        <span style={{ color: penalty > 0 ? '#ff4d4f' : '#52c41a' }}>
+        <span style={{ color: penalty > 0 ? "#ff4d4f" : "#52c41a" }}>
           RM {(penalty || 0).toFixed(2)}
         </span>
       ),
@@ -172,13 +184,15 @@ const UserDashboard = () => {
 
   if (loading) {
     return (
-      <Layout style={{ minHeight: '100vh', background: '#f0f2f5' }}>
-        <Content style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center',
-          minHeight: '100vh'
-        }}>
+      <Layout style={{ minHeight: "100vh", background: "#f0f2f5" }}>
+        <Content
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            minHeight: "100vh",
+          }}
+        >
           <Spin size="large" tip="Loading your dashboard..." />
         </Content>
       </Layout>
@@ -186,22 +200,31 @@ const UserDashboard = () => {
   }
 
   return (
-    <Layout style={{ minHeight: '100vh', background: '#f0f2f5' }}>
-      <Content style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
+    <Layout style={{ minHeight: "100vh", background: "#f0f2f5" }}>
+      <Content
+        style={{
+          padding: "24px",
+          maxWidth: "1400px",
+          margin: "0 auto",
+          width: "100%",
+        }}
+      >
         {/* Header */}
-        <div style={{ marginBottom: '24px' }}>
-          <h1 style={{ fontSize: '28px', marginBottom: '8px' }}>Your library, open 24/7</h1>
+        <div style={{ marginBottom: "24px" }}>
+          <h1 style={{ fontSize: "28px", marginBottom: "8px" }}>
+            Your library, open 24/7
+          </h1>
         </div>
 
         {/* Statistics Cards */}
-        <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
+        <Row gutter={[16, 16]} style={{ marginBottom: "24px" }}>
           <Col xs={24} sm={12} md={6}>
             <Card>
               <Statistic
                 title="Books Borrowed"
                 value={stats.booksBorrowed}
                 prefix={<BookOutlined />}
-                valueStyle={{ color: '#1890ff' }}
+                valueStyle={{ color: "#1890ff" }}
               />
             </Card>
           </Col>
@@ -211,7 +234,7 @@ const UserDashboard = () => {
                 title="Books Returned"
                 value={stats.booksReturned}
                 prefix={<CheckCircleOutlined />}
-                valueStyle={{ color: '#52c41a' }}
+                valueStyle={{ color: "#52c41a" }}
               />
             </Card>
           </Col>
@@ -222,7 +245,9 @@ const UserDashboard = () => {
                 value={stats.penalty}
                 prefix="RM"
                 precision={2}
-                valueStyle={{ color: stats.penalty > 0 ? '#faad14' : '#52c41a' }}
+                valueStyle={{
+                  color: stats.penalty > 0 ? "#faad14" : "#52c41a",
+                }}
               />
             </Card>
           </Col>
@@ -232,23 +257,20 @@ const UserDashboard = () => {
                 title="Total Borrows"
                 value={stats.totalBorrows}
                 prefix={<ClockCircleOutlined />}
-                valueStyle={{ color: '#1890ff' }}
+                valueStyle={{ color: "#1890ff" }}
               />
             </Card>
           </Col>
         </Row>
 
         {/* Borrowing History Table */}
-        <Card 
-          title="Borrowing History"
-          style={{ marginBottom: '24px' }}
-        >
+        <Card title="Borrowing History" style={{ marginBottom: "24px" }}>
           {borrowHistory.length > 0 ? (
             <Table
               columns={loanColumns}
               dataSource={borrowHistory}
               pagination={{ pageSize: 10 }}
-              scroll={{ x: 'max-content' }}
+              scroll={{ x: "max-content" }}
               rowKey="id"
             />
           ) : (
@@ -257,12 +279,12 @@ const UserDashboard = () => {
         </Card>
 
         {/* Browse Books Button */}
-        <div style={{ textAlign: 'center', marginTop: '32px' }}>
-          <Button 
-            type="primary" 
+        <div style={{ textAlign: "center", marginTop: "32px" }}>
+          <Button
+            type="primary"
             size="large"
             icon={<BookOutlined />}
-            onClick={() => navigate('/catalog')}
+            onClick={() => navigate("/catalog")}
           >
             Browse Books
           </Button>

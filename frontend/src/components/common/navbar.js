@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, message } from 'antd';
+import React, { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Menu, message } from "antd";
 import {
   HomeOutlined,
   BookOutlined,
@@ -8,25 +8,25 @@ import {
   DashboardOutlined,
   SettingOutlined,
   LogoutOutlined,
-} from '@ant-design/icons';
+} from "@ant-design/icons";
 
 const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [current, setCurrent] = useState('home');
-  
+  const [current, setCurrent] = useState("home");
+
   // Get user from localStorage (or however you're storing it now)
   const [user, setUser] = useState(null);
 
   useEffect(() => {
     // Check if user is logged in
-    const storedUser = localStorage.getItem('user');
-    if (storedUser && storedUser !== 'undefined') {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser && storedUser !== "undefined") {
       try {
         setUser(JSON.parse(storedUser));
       } catch (error) {
-        console.error('Failed to parse stored user data:', error);
-        localStorage.removeItem('user');
+        console.error("Failed to parse stored user data:", error);
+        localStorage.removeItem("user");
         setUser(null);
       }
     } else {
@@ -37,86 +37,86 @@ const Navbar = () => {
   // Update selected menu item based on current route
   useEffect(() => {
     const path = location.pathname;
-    if (path === '/') setCurrent('home');
-    else if (path === '/catalog') setCurrent('catalog');
-    else if (path === '/Auth') setCurrent('auth');
-    else if (path === '/userDashboard') setCurrent('dashboard');
-    else if (path === '/adminDashboard') setCurrent('admin');
+    if (path === "/") setCurrent("home");
+    else if (path === "/catalog") setCurrent("catalog");
+    else if (path === "/Auth") setCurrent("auth");
+    else if (path === "/userDashboard") setCurrent("dashboard");
+    else if (path === "/adminDashboard") setCurrent("admin");
   }, [location]);
 
-const handleLogout = async () => {
-  try {
-    // Optional: Call backend logout endpoint
-    // await authAPI.logout();
-    
-    // Clear user data
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
-    setUser(null);
-    
-    message.success('Logged out successfully');
-    navigate('/');
-  } catch (error) {
-    console.error('Logout error:', error);
-    // Still clear local data even if backend call fails
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
-    setUser(null);
-    navigate('/');
-  }
-};
+  const handleLogout = async () => {
+    try {
+      // Optional: Call backend logout endpoint
+      // await authAPI.logout();
+
+      // Clear user data
+      localStorage.removeItem("user");
+      localStorage.removeItem("token");
+      setUser(null);
+
+      message.success("Logged out successfully");
+      navigate("/");
+    } catch (error) {
+      console.error("Logout error:", error);
+      // Still clear local data even if backend call fails
+      localStorage.removeItem("user");
+      localStorage.removeItem("token");
+      setUser(null);
+      navigate("/");
+    }
+  };
 
   // Menu items for guests (not logged in)
   const guestItems = [
     {
-      key: 'home',
+      key: "home",
       icon: <HomeOutlined />,
       label: <Link to="/">Home</Link>,
     },
     {
-      key: 'catalog',
+      key: "catalog",
       icon: <BookOutlined />,
       label: <Link to="/catalog">Browse Books</Link>,
     },
     {
-      key: 'auth',
+      key: "auth",
       icon: <UserOutlined />,
       label: <Link to="/Auth">Login/Register</Link>,
-      style: { marginLeft: 'auto' },
+      style: { marginLeft: "auto" },
     },
   ];
 
   // Menu items for regular users
   const userItems = [
     {
-      key: 'home',
+      key: "home",
       icon: <HomeOutlined />,
       label: <Link to="/">Home</Link>,
     },
     {
-      key: 'catalog',
+      key: "catalog",
       icon: <BookOutlined />,
       label: <Link to="/catalog">Browse Books</Link>,
     },
     {
-      key: 'dashboard',
+      key: "dashboard",
       icon: <DashboardOutlined />,
       label: <Link to="/userDashboard">My Library</Link>,
     },
     {
-      key: 'user-menu',
+      key: "user-menu",
       icon: <UserOutlined />,
-      label: user?.name || 'User',
-      style: { marginLeft: 'auto' },
+      label: user?.fullName || "User",
+      style: { marginLeft: "auto" },
       children: [
         {
-          key: 'profile',
-          label: 'Profile',
+          key: "profile",
+          label: "Profile",
         },
         {
-          key: 'logout',
+          key: "logout",
           icon: <LogoutOutlined />,
-          label: 'Logout',
+          label: "Logout",
           onClick: handleLogout,
         },
       ],
@@ -126,39 +126,39 @@ const handleLogout = async () => {
   // Menu items for admin users
   const adminItems = [
     {
-      key: 'home',
+      key: "home",
       icon: <HomeOutlined />,
       label: <Link to="/">Home</Link>,
     },
     {
-      key: 'catalog',
+      key: "catalog",
       icon: <BookOutlined />,
       label: <Link to="/catalog">Browse Books</Link>,
     },
     {
-      key: 'dashboard',
+      key: "dashboard",
       icon: <DashboardOutlined />,
       label: <Link to="/userDashboard">My Library</Link>,
     },
     {
-      key: 'admin',
+      key: "admin",
       icon: <SettingOutlined />,
       label: <Link to="/adminDashboard">Admin Dashboard</Link>,
     },
     {
-      key: 'user-menu',
+      key: "user-menu",
       icon: <UserOutlined />,
-      label: user?.name || 'Admin',
-      style: { marginLeft: 'auto' },
+      label: user?.fullName || "Admin",
+      style: { marginLeft: "auto" },
       children: [
         {
-          key: 'profile',
-          label: 'Profile',
+          key: "profile",
+          label: "Profile",
         },
         {
-          key: 'logout',
+          key: "logout",
           icon: <LogoutOutlined />,
-          label: 'Logout',
+          label: "Logout",
           onClick: handleLogout,
         },
       ],
@@ -168,38 +168,42 @@ const handleLogout = async () => {
   // Select menu items based on user role
   const getMenuItems = () => {
     if (!user) return guestItems;
-    if (user.role === 'ADMIN') return adminItems;
+    if (user.role === "ADMIN") return adminItems;
     return userItems;
   };
 
   return (
-    <div style={{ 
-      borderBottom: '1px solid #f0f0f0',
-      background: '#fff',
-      position: 'sticky',
-      top: 0,
-      zIndex: 1000,
-      boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
-    }}>
-      <div style={{ 
-        maxWidth: '1200px', 
-        margin: '0 auto',
-        display: 'flex',
-        alignItems: 'center',
-        padding: '0 24px'
-      }}>
+    <div
+      style={{
+        borderBottom: "1px solid #f0f0f0",
+        background: "#fff",
+        position: "sticky",
+        top: 0,
+        zIndex: 1000,
+        boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: "1200px",
+          margin: "0 auto",
+          display: "flex",
+          alignItems: "center",
+          padding: "0 24px",
+        }}
+      >
         {/* Logo */}
-        <Link 
-          to="/" 
-          style={{ 
-            fontSize: '20px',
-            fontWeight: 'bold',
-            color: '#1890ff',
-            marginRight: '40px',
-            textDecoration: 'none',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
+        <Link
+          to="/"
+          style={{
+            fontSize: "20px",
+            fontWeight: "bold",
+            color: "#1890ff",
+            marginRight: "40px",
+            textDecoration: "none",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
           }}
         >
           📚 Three Girls Library
@@ -210,10 +214,10 @@ const handleLogout = async () => {
           mode="horizontal"
           selectedKeys={[current]}
           items={getMenuItems()}
-          style={{ 
-            flex: 1, 
-            border: 'none',
-            background: 'transparent'
+          style={{
+            flex: 1,
+            border: "none",
+            background: "transparent",
           }}
         />
       </div>
