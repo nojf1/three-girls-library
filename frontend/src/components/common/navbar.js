@@ -110,10 +110,6 @@ const Navbar = () => {
       style: { marginLeft: "auto" },
       children: [
         {
-          key: "profile",
-          label: "Profile",
-        },
-        {
           key: "logout",
           icon: <LogoutOutlined />,
           label: "Logout",
@@ -151,10 +147,6 @@ const Navbar = () => {
       label: user?.fullName || "Admin",
       style: { marginLeft: "auto" },
       children: [
-        {
-          key: "profile",
-          label: "Profile",
-        },
         {
           key: "logout",
           icon: <LogoutOutlined />,
