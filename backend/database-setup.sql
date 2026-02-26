@@ -168,7 +168,6 @@ INSERT INTO books (title, author, isbn, genre, description, published_year, tota
 ('Becoming', 'Michelle Obama', '978-1524763138', 'Biography', 'A memoir by former First Lady of the United States Michelle Obama.', 2018, 4, 4),
 
 -- Classic Literature
-('Moby-Dick', 'Herman Melville', '978-1503280786', 'Adventure', 'The narrative of Captain Ahab obsessive quest to kill the white whale.', 1851, 2, 2),
 ('Jane Eyre', 'Charlotte Brontë', '978-0141441146', 'Romance', 'A novel about the experiences of the eponymous heroine.', 1847, 3, 3),
 
 -- Contemporary
